@@ -1,0 +1,55 @@
+---
+title: "Reproducible Research - PAMD"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r}
+library(tidyverse)
+library(lubridate)
+```
+## Loading and preprocessing the data
+
+
+```{r}
+fileUrl <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
+fname <- c("./data/pamd.zip")
+
+source("LoadUnzip.R")
+
+```
+
+
+```{r}
+dateDownloaded
+summary(maindf)
+```
+
+
+
+## What is mean total number of steps taken per day?
+
+```{r}
+maindf %>% group_by(month(date), day(date)) %>%  summarize(sum(is.na(steps)))
+```
+
+
+## Imputing missing values
+
+```{r}
+Are there differences in activity patterns between weekdays and weekends?
+```
+
+
+
+```{r}
+
+```
+
+
+
