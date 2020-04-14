@@ -12,6 +12,8 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r}
 library(tidyverse)
 library(lubridate)
+library(gt)
+library(glue)
 ```
 ## Loading and preprocessing the data
 
@@ -35,8 +37,53 @@ summary(maindf)
 ## What is mean total number of steps taken per day?
 
 ```{r}
-maindf %>% group_by(month(date), day(date)) %>%  summarize(sum(is.na(steps)))
+start_date <- min(maindf$date)
+end_date <- max(maindf$date)
+
 ```
+
+```{r}
+Total_Obs <- length(maind1f$date)
+```
+
+
+```{r}
+Yeardf <- maindf %>% group_by(`Year`=year(date)) %>%  summarize(ISNA_Count = sum(is.na(steps)), Mean_ISNA=mean(is.na(steps)), Total_Obs = length(maind1f$date)) %>% ungroup() %>% gt() %>% 
+        tab_header(
+        title = "Year 'IS.NA' Summary",
+        subtitle = glue("{start_date} to {end_date}"))
+Yeardf
+```
+
+```{r}
+Monthdf <- maindf %>% group_by(M=month(date,label = TRUE, abbr = TRUE)) %>%  summarize(Total_Obs = length(date), ISNA_Count = sum(is.na(steps)), Mean_ISNA=mean(is.na(steps))) %>% gt() %>% 
+        tab_header(
+        title = "Monthly 'IS.NA' Summary",
+        subtitle = glue("{start_date} to {end_date}"))
+Monthdf
+```
+
+
+
+
+
+```{r}
+Monthdf <- maindf %>% group_by(M=month(date,label = TRUE, abbr = TRUE)) %>%  summarize(ISNA_Count = sum(is.na(steps)), Mean_ISNA=mean(is.na(steps)),Total_Obs = length(date)) %>% gt() %>% 
+        tab_header(
+        title = "Monthly 'IS.NA' Summary",
+        subtitle = glue("{start_date} to {end_date}"))
+Monthdf
+```
+
+
+```{r}
+ByDaydf <- maindf %>% group_by(M=month(date,label = TRUE, abbr = TRUE),DayName=wday(date,label = TRUE, abbr = TRUE)) %>%  summarize(ISNA_Count = sum(is.na(steps)), Mean_ISNA=mean(is.na(steps))) %>% gt() %>% 
+        tab_header(
+        title = "Daily 'IS.NA' Summary",
+        subtitle = glue("{start_date} to {end_date}"))
+```
+
+
 
 
 ## Imputing missing values
