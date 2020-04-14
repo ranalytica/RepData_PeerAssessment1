@@ -14,61 +14,116 @@ library(tidyverse)
 library(lubridate)
 library(gt)
 library(glue)
+library(paletteer)
+library(scales)
 ```
-## Loading and preprocessing the data
-
-
+## Load Data
 ```{r}
 fileUrl <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
 fname <- c("./data/pamd.zip")
 
 source("LoadUnzip.R")
-
+# if(!file.exists("data")){
+#         dir.create("data")
+# }
+# 
+# download.file(fileUrl,destfile="./data/pamd.zip",method="curl")
+# 
+# dateDownloaded <- date()
+# 
+# maindf <- read_delim(fname, delim = ",", col_names = TRUE)
 ```
-
-
 ```{r}
 dateDownloaded
 summary(maindf)
 ```
-
-
-
-## What is mean total number of steps taken per day?
-
+Min and Max of Date
 ```{r}
 start_date <- min(maindf$date)
 end_date <- max(maindf$date)
+```
+
+What is *mean* total number of steps taken per day?
+Review the mean of the Steps by grouping as follows:
+* Year as a whole
+* Month-Days
+* Month-Weekdays
+
+Year as a whole
+```{r}
+MeanTotal <- maindf %>% drop_na() %>% group_by(`Year`=year(date)) %>%  
+        summarize(Total_Obs = length(date), SumOfSteps = sum(steps),
+        MeanStepDay = mean(steps, na.rm = TRUE), MedianSteps = median(steps))  
+        
+GTMeanTotal <- MeanTotal%>% gt() %>% data_color(
+        columns = vars(MeanStepDay,MedianSteps),
+        colors = c("yellow")) %>% 
+        tab_header(title = "Step Summary",
+        subtitle = glue("{start_date} to {end_date}"))
+
+GTMeanTotal
+```
+
+Month-Days
+```{r}
+MeanMonth <- maindf %>% drop_na() %>% group_by(`Month`=month(date, label = TRUE, abbr = TRUE),
+        DayDate=day(date))  %>% summarize(Total_Obs = length(date), 
+        SumOfSteps = sum(steps), IntervalStepMean = mean(steps), 
+        IntervalStepMed = median(steps))  
+        
+GTMeanMonth <- MeanMonth %>% gt() %>% data_color(
+        columns = vars(IntervalStepMean),
+        colors = scales::col_numeric(
+                palette = c("red", "orange", "green", "blue"),
+                domain = c(0,80))
+        ) %>% 
+        tab_header(title = "Step Daily Summary",
+        subtitle = glue("{start_date} to {end_date}"))
+
+GTMeanMonth
+```
+
+
+```{r}
+g1<-ggplot(data = MeanMonth, aes(x=IntervalStepMean, fill = `Month`))
+g1+geom_histogram(bins = 9)
+```
+
+
+For this part of the assignment, you can ignore the missing values in the dataset.
+
+1. Calculate the total number of steps taken per day
+```{r}
+Yeardf <- maindf %>% group_by(`Year`=year(date)) %>%  summarize(ISNA_Count = sum(is.na(steps)),
+        Mean_ISNA=mean(is.na(steps)), Total_Obs = length(maindf$date)) %>% ungroup() %>% gt() %>% 
+        tab_header(title = "Year 'IS.NA' Summary",
+        subtitle = glue("{start_date} to {end_date}"))
+```
+
+
+2. If you do not understand the difference between a histogram and a barplot, research the difference between them. 
+3. Make a histogram of the total number of steps taken each day
+Calculate and report the mean and median of the total number of steps taken per day
+```{r}
 
 ```
 
-```{r}
-Total_Obs <- length(maind1f$date)
-```
 
 
+
+
+
 ```{r}
-Yeardf <- maindf %>% group_by(`Year`=year(date)) %>%  summarize(ISNA_Count = sum(is.na(steps)), Mean_ISNA=mean(is.na(steps)), Total_Obs = length(maind1f$date)) %>% ungroup() %>% gt() %>% 
-        tab_header(
-        title = "Year 'IS.NA' Summary",
+Yeardf <- maindf %>% group_by(`Year`=year(date)) %>%  summarize(ISNA_Count = sum(is.na(steps)),
+        Mean_ISNA=mean(is.na(steps)), Total_Obs = length(maindf$date)) %>% ungroup() %>% gt() %>% 
+        tab_header(title = "Year 'IS.NA' Summary",
         subtitle = glue("{start_date} to {end_date}"))
 Yeardf
 ```
 
 ```{r}
-Monthdf <- maindf %>% group_by(M=month(date,label = TRUE, abbr = TRUE)) %>%  summarize(Total_Obs = length(date), ISNA_Count = sum(is.na(steps)), Mean_ISNA=mean(is.na(steps))) %>% gt() %>% 
-        tab_header(
-        title = "Monthly 'IS.NA' Summary",
-        subtitle = glue("{start_date} to {end_date}"))
-Monthdf
-```
-
-
-
-
-
-```{r}
-Monthdf <- maindf %>% group_by(M=month(date,label = TRUE, abbr = TRUE)) %>%  summarize(ISNA_Count = sum(is.na(steps)), Mean_ISNA=mean(is.na(steps)),Total_Obs = length(date)) %>% gt() %>% 
+Monthdf <- maindf %>% group_by(M=month(date,label = TRUE, abbr = TRUE)) %>%  summarize(Total_Obs = length(date), 
+        ISNA_Count = sum(is.na(steps)), Mean_ISNA=mean(is.na(steps))) %>% gt() %>% 
         tab_header(
         title = "Monthly 'IS.NA' Summary",
         subtitle = glue("{start_date} to {end_date}"))
@@ -77,10 +132,10 @@ Monthdf
 
 
 ```{r}
-ByDaydf <- maindf %>% group_by(M=month(date,label = TRUE, abbr = TRUE),DayName=wday(date,label = TRUE, abbr = TRUE)) %>%  summarize(ISNA_Count = sum(is.na(steps)), Mean_ISNA=mean(is.na(steps))) %>% gt() %>% 
-        tab_header(
-        title = "Daily 'IS.NA' Summary",
+ByDaydf <- maindf %>% group_by(M=month(date,label = TRUE, abbr = TRUE),DayName=wday(date,label = TRUE, abbr = TRUE)) %>%         summarize(Total_Obs = length(date),ISNA_Count = sum(is.na(steps)), Mean_ISNA=mean(is.na(steps))) %>% gt() %>% 
+        tab_header(title = "Daily 'IS.NA' Summary",
         subtitle = glue("{start_date} to {end_date}"))
+ByDaydf
 ```
 
 
@@ -89,11 +144,11 @@ ByDaydf <- maindf %>% group_by(M=month(date,label = TRUE, abbr = TRUE),DayName=w
 ## Imputing missing values
 
 ```{r}
-Are there differences in activity patterns between weekdays and weekends?
+
 ```
 
 
-
+# Are there differences in activity patterns between weekdays and weekends?
 ```{r}
 
 ```
