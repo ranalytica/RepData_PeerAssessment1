@@ -3,22 +3,26 @@ title: "Reproducible Research - PAMD"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
+```{r setup,include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
 
 
-```{r}
+```{r Initial Libraries,results='hide'} 
 library(tidyverse)
+library(reshape2)
 library(lubridate)
 library(gt)
 library(glue)
 library(paletteer)
+
 library(scales)
 ```
+
 ## Load Data
-```{r}
+
+```{r Load Data, results='hide'}
 fileUrl <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
 fname <- c("./data/pamd.zip")
 
@@ -33,125 +37,261 @@ source("LoadUnzip.R")
 # 
 # maindf <- read_delim(fname, delim = ",", col_names = TRUE)
 ```
-```{r}
-dateDownloaded
-summary(maindf)
+
+Added hour and minutes
+
+```{r Hour and Minutes}
+maindf<-mutate(maindf, hour = interval %/% 100, minute = interval %% 100)
 ```
+
+
 Min and Max of Date
-```{r}
+
+```{r Range}
+range(maindf$date)
 start_date <- min(maindf$date)
 end_date <- max(maindf$date)
 ```
 
-What is *mean* total number of steps taken per day?
-Review the mean of the Steps by grouping as follows:
-* Year as a whole
-* Month-Days
-* Month-Weekdays
+## What is **mean** total number of steps taken per day?
 
-Year as a whole
-```{r}
-MeanTotal <- maindf %>% drop_na() %>% group_by(`Year`=year(date)) %>%  
-        summarize(Total_Obs = length(date), SumOfSteps = sum(steps),
-        MeanStepDay = mean(steps, na.rm = TRUE), MedianSteps = median(steps))  
-        
-GTMeanTotal <- MeanTotal%>% gt() %>% data_color(
-        columns = vars(MeanStepDay,MedianSteps),
+For this part of the assignment, you can ignore the missing values in the dataset.
+
+1. Calculate the total number of steps taken per day?
+Answer: MeanTotal gives us the breakdown of steps each day.
+
+2. If you do not understand the difference between a histogram and a barplot, 
+research the difference between them.  Make a histogram of the total number of steps taken each day
+3. Calculate and report the mean and median of the total number of steps taken per day
+
+
+GTMeanTotal is using the (gt) grammar for tables, scale, glue, and paletteer package. The yellow hightlighted portion gives as the Total steps - mean and median for 53 observations (I used *drop_na* from dplyr package to remove the NA). 
+
+```{r Summarize Steps}
+MeanTotal <- maindf %>% drop_na() %>% group_by(date) %>%  summarize(Steps = sum(steps)) %>% mutate(m=month(date))
+head(MeanTotal)
+```
+
+
+```{r Mean and Median}
+StepsMeanMed <- MeanTotal %>% summarize(Obs = length(date), SumofSteps = sum(Steps), StepsMean = mean(Steps), StepsMedian = median(Steps) ) 
+
+GTMeanTotal <- StepsMeanMed %>% gt::gt() %>% data_color(
+        columns = vars(Obs,SumofSteps, StepsMean,StepsMedian),
         colors = c("yellow")) %>% 
-        tab_header(title = "Step Summary",
+        tab_header(title = "Step Mean and Median Summary",
         subtitle = glue("{start_date} to {end_date}"))
 
 GTMeanTotal
 ```
 
-Month-Days
-```{r}
-MeanMonth <- maindf %>% drop_na() %>% group_by(`Month`=month(date, label = TRUE, abbr = TRUE),
-        DayDate=day(date))  %>% summarize(Total_Obs = length(date), 
-        SumOfSteps = sum(steps), IntervalStepMean = mean(steps), 
-        IntervalStepMed = median(steps))  
-        
-GTMeanMonth <- MeanMonth %>% gt() %>% data_color(
-        columns = vars(IntervalStepMean),
-        colors = scales::col_numeric(
-                palette = c("red", "orange", "green", "blue"),
-                domain = c(0,80))
-        ) %>% 
-        tab_header(title = "Step Daily Summary",
+Histogram of Steps taken Each Day
+
+```{r histogram}
+g1<-ggplot(data = MeanTotal, aes(x=Steps,fill=factor(m)))
+gg1 <- g1+geom_histogram(bins = 9, alpha=.5)+
+        labs(title="Personal Movement Activity Monitoring Device", 
+         subtitle="Total Steps Each Day",
+         x="STEPS",
+         y="FREQUENCY",
+         fill="MONTH")
+gg1
+```
+
+
+## What is the average daily activity pattern?
+
+```{r 5 minute interval}
+SummaryIntervalSteps <- maindf %>% drop_na() %>% group_by(TimeInterval=interval)%>% 
+        summarize(Total_Obs = length(interval), 
+        SumOfSteps = sum(steps),
+        MeanOfSteps = mean(steps)) 
+
+GTInterval <- SummaryIntervalSteps %>% gt::gt() %>% data_color(
+    columns = vars(SumOfSteps, MeanOfSteps),
+    colors = scales::col_numeric(
+      palette = paletteer::paletteer_d(
+        palette = "ggsci::red_material"
+        ) %>% as.character(),
+      domain = NULL
+      )
+  ) %>% tab_header(title = "Personal Movement Activity Monitoring Device",
         subtitle = glue("{start_date} to {end_date}"))
-
-GTMeanMonth
+    
+GTInterval    
 ```
 
-
-```{r}
-g1<-ggplot(data = MeanMonth, aes(x=IntervalStepMean, fill = `Month`))
-g1+geom_histogram(bins = 9)
+1. Make a time series plot (i.e. \color{red}{\verb|type = "l"|}type="l") of the 
+5-minute interval (x-axis) and the average number of steps taken, averaged 
+across all days (y-axis)
+```{r Time Series}
+g2<-ggplot(data = SummaryIntervalSteps, aes(y=MeanOfSteps, x=TimeInterval,color="red"))
+g2+geom_line()
 ```
 
+2. Which 5-minute interval, on average across all the days in the dataset, 
+contains the maximum number of steps? 8:35 a.m.
 
-For this part of the assignment, you can ignore the missing values in the dataset.
-
-1. Calculate the total number of steps taken per day
-```{r}
-Yeardf <- maindf %>% group_by(`Year`=year(date)) %>%  summarize(ISNA_Count = sum(is.na(steps)),
-        Mean_ISNA=mean(is.na(steps)), Total_Obs = length(maindf$date)) %>% ungroup() %>% gt() %>% 
-        tab_header(title = "Year 'IS.NA' Summary",
-        subtitle = glue("{start_date} to {end_date}"))
+```{r Max Step}
+SummaryIntervalSteps %>%  filter(MeanOfSteps==max(MeanOfSteps)) %>% select(TimeInterval, MeanOfSteps)
 ```
 
+## Imputing missing values
+Note that there are a number of days/intervals where there are missing values (coded as \color{red}{\verb|NA|}NA). The presence of missing days may introduce bias into some calculations or summaries of the data.
 
-2. If you do not understand the difference between a histogram and a barplot, research the difference between them. 
-3. Make a histogram of the total number of steps taken each day
-Calculate and report the mean and median of the total number of steps taken per day
-```{r}
-
-```
+1. Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with \color{red}{\verb|NA|}NAs)
+2. Devise a strategy for filling in all of the missing values in the dataset. The strategy does not need to be sophisticated. For example, you could use the mean/median for that day, or the mean for that 5-minute interval, etc.
 
 
-
-
-
-
-```{r}
-Yeardf <- maindf %>% group_by(`Year`=year(date)) %>%  summarize(ISNA_Count = sum(is.na(steps)),
-        Mean_ISNA=mean(is.na(steps)), Total_Obs = length(maindf$date)) %>% ungroup() %>% gt() %>% 
+```{r Total Missing value, mean of missing value}
+Yeardf <- maindf %>% group_by(`Year`=year(date)) %>%  
+        summarize(ISNA_Count = sum(is.na(steps)), Mean_ISNA=mean(is.na(steps)), 
+        Total_Obs = length(maindf$date)) %>% ungroup() %>% gt() %>% 
         tab_header(title = "Year 'IS.NA' Summary",
         subtitle = glue("{start_date} to {end_date}"))
 Yeardf
 ```
 
-```{r}
-Monthdf <- maindf %>% group_by(M=month(date,label = TRUE, abbr = TRUE)) %>%  summarize(Total_Obs = length(date), 
-        ISNA_Count = sum(is.na(steps)), Mean_ISNA=mean(is.na(steps))) %>% gt() %>% 
-        tab_header(
-        title = "Monthly 'IS.NA' Summary",
-        subtitle = glue("{start_date} to {end_date}"))
-Monthdf
+Monthly Missing Data
+
+```{r Missing Values by Month}
+Monthdf <- maindf %>% group_by(M=month(date,label=TRUE, abbr=TRUE)) %>% 
+  summarize(Total_Obs = length(date), ISNA_Count = sum(is.na(steps)),
+            Mean_ISNA=mean(is.na(steps))) 
+
+MonthdfGT <- Monthdf %>% gt() %>% 
+  tab_header(
+    title = "Monthly 'IS.NA' Summary",
+    subtitle = glue("{start_date} to {end_date}"))
+MonthdfGT
+```
+
+```{r Missing Values by Day Name}
+dailydf <-
+    maindf %>%  group_by(
+      Daily = wday(date, label = TRUE, abbr = TRUE)) %>%
+    summarize(
+      Total_Obs = length(date),
+      ISNA_Count = sum(is.na(steps)),
+      Mean_ISNA = mean(is.na(steps))
+  )
+
+  dailydf %>% gt() %>%
+    tab_header(title = "By day 'IS.NA' Summary",
+               subtitle = glue("{start_date} to {end_date}"))
 ```
 
 
+```{r histogram}
+g3 <- ggplot(data = dailydf, aes(Daily))
+
+g3 + geom_bar(aes(weight = ISNA_Count))
+```
+
+3. Create a new dataset that is equal to the original dataset but with the missing data filled in.
+
+```{r using VIM package to plot missing values}
+# load these library at these section because it affects lubridate labels
+# and abbr
+library(mice)
+library(missForest)
+library(VIM)
+
+aggr(maindf, col=c('navyblue', 'red'),
+     numbers=TRUE, sortVars=TRUE,
+     labels=names(maindf), cex.axis=.8,
+     gap=5, ylab=c("Missing Data", "Pattern"))
+```
+
+```{r Predivtive Mean Matching model using mice package}
+imputed_maindf1 <- mice(maindf, m=3, maxit = 50, 
+                        method = 'pmm', seed = 420)
+summary(imputed_maindf1)
+```
+
+
+```{r 3 models from pmm}
+imputed_maindf1$imp$steps
+```
+
+```{r pick a model from the 3}
+complete_Maindf1 <- complete(imputed_maindf1, 1)
+summary(complete_Maindf1)
+```
+
+```{r Comparison from missing data to imputed data}
+CompleteMeanTotal <- complete_Maindf1 %>% group_by(date) %>%  summarize(Steps = sum(steps)) %>% mutate(m=month(date))
+
+g4<-ggplot(data = CompleteMeanTotal, aes(x=Steps,fill=factor(m)))
+gg4<-g4+geom_histogram(bins = 9, alpha=.5)+
+        labs(title="Personal Movement Activity Monitoring Device", 
+         subtitle="Total Steps Each Day (No missing data)",
+         x="STEPS",
+         y="FREQUENCY",
+         fill="MONTH") 
+
+library(cowplot)
+
+plot_grid(gg1, gg4, nrow = 2)
+```
+4. Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day. Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
+
+Steps, mean and median increase 98528, 203.2539, and 39 respectively.
+
+```{r New Dataset with imputed data}
+CompleteTotal <-
+  complete_Maindf1 %>% drop_na() %>% group_by(date) %>%  summarize(Steps = sum(steps)) %>% mutate(m =
+                                                                                                    month(date))
+
+CompleteMeanMed <-
+  CompleteTotal %>% summarize(
+    Obs = length(date),
+    SumofSteps = sum(Steps),
+    StepsMean = mean(Steps),
+    StepsMedian = median(Steps)
+  )
+
+GTCompleteMeanMed <- CompleteMeanMed %>% gt::gt() %>% data_color(
+  columns = vars(Obs, SumofSteps, StepsMean, StepsMedian),
+  colors = c("yellow")
+) %>%
+  tab_header(title = "Step Mean and Median Summary (No missing data",
+             subtitle = glue("{start_date} to {end_date}"))
+
+
+GTCompleteMeanMed
+```
+
+
+```{r original mean and med missing value remove}
+GTMeanTotal
+```
+
+
+```{r simple math to show new mean med steps, echo=false }
+NewSteps <- CompleteMeanMed$SumofSteps - StepsMeanMed$SumofSteps
+NewMean <- CompleteMeanMed$StepsMean - StepsMeanMed$StepsMean
+NewMed <- CompleteMeanMed$StepsMedian - StepsMeanMed$StepsMedian
+```
+
+
+## Are there differences in activity patterns between weekdays and weekends?
+
+For this part the \color{red}{\verb|weekdays()|}weekdays() function may be of some help here. Use the dataset with the filled-in missing values for this part.
+
+Create a new factor variable in the dataset with two levels – “weekday” and “weekend” indicating whether a given date is a weekday or weekend day.
+Make a panel plot containing a time series plot (i.e. \color{red}{\verb|type = "l"|}type="l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis). See the README file in the GitHub repository to see an example of what this plot should look like using simulated data.
+
 ```{r}
-ByDaydf <- maindf %>% group_by(M=month(date,label = TRUE, abbr = TRUE),DayName=wday(date,label = TRUE, abbr = TRUE)) %>%         summarize(Total_Obs = length(date),ISNA_Count = sum(is.na(steps)), Mean_ISNA=mean(is.na(steps))) %>% gt() %>% 
-        tab_header(title = "Daily 'IS.NA' Summary",
-        subtitle = glue("{start_date} to {end_date}"))
-ByDaydf
+
 ```
 
 
 
 
-## Imputing missing values
-
-```{r}
-
-```
 
 
-# Are there differences in activity patterns between weekdays and weekends?
-```{r}
 
-```
 
 
 
