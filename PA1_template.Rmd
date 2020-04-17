@@ -3,23 +3,353 @@ title: "Reproducible Research: Peer Assessment 1"
 output: 
   html_document:
     keep_md: true
+    toc: true
+    toc_float: true
+    code_folding: show
 ---
 
+```{r setup,include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
 
-## Loading and preprocessing the data
+## Environment Settings
+
+Not all packages are in one chunk code due to conflicts with lubridate either with VIM, mice or misforest package. 
+
+```{r Initial Libraries,results='hide', message=FALSE} 
+library(tidyverse)
+library(reshape2)
+library(lubridate)
+library(gt)
+library(glue)
+library(paletteer)
+library(scales)
+```
+
+```{r Environment settings}
+sessionInfo()
+```
+
+## Load Datasets
+```{r Load Data, message=FALSE, results='hide'}
+fileUrl <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
+fname <- c("./data/pamd.zip")
+
+source("LoadUnzip.R")
+dateDownloaded
+# LoadUnzip.R = if(!file.exists("data")){
+#         dir.create("data")
+# }
+# 
+# download.file(fileUrl,destfile="./data/pamd.zip",method="curl")
+# 
+# dateDownloaded <- date()
+# 
+# maindf <- read_delim(fname, delim = ",", col_names = TRUE)
+```
+Dataset download date `r dateDownloaded`.
+
+Range of Date
+```{r Range}
+start_date <- min(maindf$date)
+end_date <- max(maindf$date)
+range(maindf$date)
+```
+
+## What is **mean** total number of steps taken per day?
+
+For this part of the assignment, you can ignore the missing values in the dataset.
+
+1. Calculate the total number of steps taken per day?
+Answer: MeanTotal gives us the breakdown of steps each day.
+
+2. If you do not understand the difference between a histogram and a barplot, 
+research the difference between them.  Make a histogram of the total number of steps taken each day
+3. Calculate and report the mean and median of the total number of steps taken per day
 
 
+GTMeanTotal is using the (gt) grammar for tables, scale, glue, and paletteer package. The yellow hightlighted portion gives as the Total steps - mean and median for 53 observations (I used *drop_na* from dplyr package to remove the NA). 
 
-## What is mean total number of steps taken per day?
+```{r Summarize Steps}
+MeanTotal <- maindf %>% drop_na() %>% group_by(date) %>%  summarize(Steps = sum(steps)) %>% mutate(m=month(date))
+head(MeanTotal)
+```
+Mean and Median
+```{r Mean and Median}
+StepsMeanMed <- MeanTotal %>% summarize(Obs = length(date), SumofSteps = sum(Steps), StepsMean = mean(Steps), StepsMedian = median(Steps) ) 
 
+GTMeanTotal <- StepsMeanMed %>% gt::gt() %>% data_color(
+        columns = vars(Obs,SumofSteps, StepsMean,StepsMedian),
+        colors = c("yellow")) %>% 
+        tab_header(title = "Step Mean and Median Summary",
+        subtitle = glue("{start_date} to {end_date}"))
+
+GTMeanTotal
+```
+
+
+### Histogram of Steps taken Each Day
+```{r Mean Steps histogram}
+g1<-ggplot(data = MeanTotal, aes(x=Steps,fill=factor(m)))
+gg1 <- g1+geom_histogram(bins = 9, alpha=.5)+geom_vline(xintercept = mean(MeanTotal$Steps))+
+  labs(title="Personal Movement Activity Monitoring Device", 
+         subtitle="Total Steps Each Day, Observation = 53 days",
+         x="STEPS",
+         y="FREQUENCY",
+         fill="MONTH")
+gg1
+```
 
 
 ## What is the average daily activity pattern?
+I'm using the gt (grammar for tables) package to analyze the average of steps in 5 minute interval.  This table has 288 observations - see below:. 
+```{r 5 minute interval}
+SummaryIntervalSteps <- maindf %>% drop_na() %>% group_by(TimeInterval=interval)%>% 
+        summarize(Total_Obs = length(interval), 
+        SumOfSteps = sum(steps),
+        MeanOfSteps = mean(steps)) 
 
+GTInterval <- SummaryIntervalSteps %>% gt::gt() %>% data_color(
+    columns = vars(SumOfSteps, MeanOfSteps),
+    colors = scales::col_numeric(
+      palette = paletteer::paletteer_d(
+        palette = "ggsci::red_material"
+        ) %>% as.character(),
+      domain = NULL
+      )
+  ) %>% tab_header(title = "Personal Movement Activity Monitoring Device",
+        subtitle = glue("{start_date} to {end_date}"))
+    
+GTInterval    
+```
+###Timeseries
+1. Make a time series plot (i.e. \color{red}{\verb|type = "l"|}type="l") of the 
+5-minute interval (x-axis) and the average number of steps taken, averaged 
+across all days (y-axis)
 
+ 
+```{r Time Series}
+g2<-ggplot(data = SummaryIntervalSteps, aes(y=MeanOfSteps, x=TimeInterval))
+g2+geom_line(color="red")+
+        labs(title="Personal Movement Activity Monitoring Device", 
+         subtitle="Average Steps Each Day",
+         x="Time Interval ",
+         y="Average Steps",
+         fill="MONTH") 
+```
+
+2. Which 5-minute interval, on average across all the days in the dataset, 
+contains the maximum number of steps? 8:35 a.m.
+```{r Max Step}
+SummaryIntervalSteps %>%  filter(MeanOfSteps==max(MeanOfSteps)) %>% select(TimeInterval, MeanOfSteps)
+```
 
 ## Imputing missing values
+Note that there are a number of days/intervals where there are missing values (coded as \color{red}{\verb|NA|}NA). The presence of missing days may introduce bias into some calculations or summaries of the data.
+
+1. Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with \color{red}{\verb|NA|}NAs)
+2. Devise a strategy for filling in all of the missing values in the dataset. The strategy does not need to be sophisticated. For example, you could use the mean/median for that day, or the mean for that 5-minute interval, etc.
+```{r Total Missing value, mean of missing value}
+Yeardf <- maindf %>% group_by(`Year`=year(date)) %>%  
+        summarize(ISNA_Count = sum(is.na(steps)), Mean_ISNA=mean(is.na(steps)), 
+        Total_Obs = length(maindf$date)) %>% ungroup() %>% gt() %>% 
+        tab_header(title = "Year 'IS.NA' Summary",
+        subtitle = glue("{start_date} to {end_date}"))
+Yeardf
+```
+## Monthly Missing Data
+```{r Missing Values by Month}
+Monthdf <- maindf %>% group_by(M=month(date,label=TRUE, abbr=TRUE)) %>% 
+  summarize(Total_Obs = length(date), ISNA_Count = sum(is.na(steps)),
+            Mean_ISNA=mean(is.na(steps))) 
+
+MonthdfGT <- Monthdf %>% gt() %>% 
+  tab_header(
+    title = "Monthly 'IS.NA' Summary",
+    subtitle = glue("{start_date} to {end_date}"))
+MonthdfGT
+```
+
+```{r Missing Values by Day Name}
+dailydf <-
+    maindf %>%  group_by(
+      Daily = wday(date, label = TRUE, abbr = TRUE)) %>%
+    summarize(
+      Total_Obs = length(date),
+      ISNA_Count = sum(is.na(steps)),
+      Mean_ISNA = mean(is.na(steps))
+  )
+
+  dailydf %>% gt() %>%
+    tab_header(title = "By day 'IS.NA' Summary",
+               subtitle = glue("{start_date} to {end_date}"))
+```
 
 
+```{r histogram by days}
+g3 <- ggplot(data = dailydf, aes(Daily))
+
+g3 + geom_bar(aes(weight = ISNA_Count))+
+        labs(title="Personal Movement Activity Monitoring Device", 
+         subtitle="Missing data in Week Days",
+         x="Daily",
+         y="Frequency") 
+```
+
+3. Create a new dataset that is equal to the original dataset but with the missing data filled in.
+```{r using VIM package to plot missing values, message=FALSE}
+# load these library at these section because it affects lubridate labels
+# and abbr
+library(mice)
+library(missForest)
+library(VIM)
+```
+
+Using aggr function to plot NA.  
+```{r aggr vim}
+aggr(maindf, col=c('navyblue', 'red'),
+     numbers=TRUE, sortVars=TRUE,
+     labels=names(maindf), cex.axis=.8,
+     gap=5, ylab=c("Missing Data", "Pattern"))
+```
+I'm using Predictive Mean Matching (PMM) model to impute the missing data.
+1. m = number of multiple imputations. Default is 5 and I picked 3.  
+2. maxit = A scalar giving the number of imputations. the default is 5 and I chose 50
+3. Method = pmm
+4. seed = set.seed
+
+```{r Predictive Mean Matching model using mice package, message=FALSE}
+imputed_maindf1 <- mice(maindf, m=3, maxit = 50, 
+                        method = 'pmm', seed = 420)
+```
+
+Summary of the Imputed Data.  
+```{r summary}
+summary(imputed_maindf1)
+```
+
+Multiple imputations (m=3)
+```{r 3 models from pmm}
+head(imputed_maindf1$imp$steps)
+```
+Picking a model from m = 3 to impute the data.  
+```{r picked 1 from the 3 models}
+complete_Maindf1 <- complete(imputed_maindf1, 1)
+
+summary(complete_Maindf1)
+```
+
+4. Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day. Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
+```{r Comparison from missing data to imputed data,message=FALSE}
+CompleteMeanTotal <- complete_Maindf1 %>% group_by(date) %>%  summarize(Steps = sum(steps)) %>% mutate(m=month(date))
+
+g4<-ggplot(data = CompleteMeanTotal, aes(x=Steps,fill=factor(m)))
+        
+gg4<-g4+geom_histogram(bins = 9, alpha=.5)+geom_vline(
+                xintercept = mean(CompleteMeanTotal$Steps))+
+        labs(title="Personal Movement Activity Monitoring Device", 
+                subtitle="Total Steps Each Day (Imputed dataset), Observation = 61 days",
+                x="STEPS",
+                y="FREQUENCY",
+                fill="MONTH") 
+
+library(cowplot)
+
+plot_grid(gg1, gg4, nrow = 2, labels = "AUTO")
+```
+The above histogram shows the imputed dataset's mean decrease -203.1231, median decrease -326, the steps increase 69042, observation increase by 8 because we imputed the datasets. 
+
+Calculating the steps mean and median.  
+```{r New Dataset with imputed data}
+CompleteTotal <-
+    complete_Maindf1 %>% drop_na() %>% group_by(date) %>%  
+    summarize(Steps = sum(steps)) %>% mutate(m =month(date))
+
+CompleteMeanMed <-
+    CompleteTotal %>% summarize(
+      Obs = length(date),
+      SumofSteps = sum(Steps),
+      StepsMean = mean(Steps),
+      StepsMedian = median(Steps)
+  )
+
+GTCompleteMeanMed <- CompleteMeanMed %>% gt::gt() %>% data_color(
+    columns = vars(Obs, SumofSteps, StepsMean, StepsMedian),
+      colors = c("yellow")
+) %>%
+    tab_header(title = "Step Mean and Median Summary (No missing data",
+               subtitle = glue("{start_date} to {end_date}"))
+
+
+GTCompleteMeanMed
+```
+Original data set with NA remove. 
+```{r original mean and med missing value remove}
+GTMeanTotal
+```
+
+Comparison formula:
+```{r simple math to show new mean med steps}
+NewSteps <- CompleteMeanMed$SumofSteps - StepsMeanMed$SumofSteps
+NewMean <- CompleteMeanMed$StepsMean - StepsMeanMed$StepsMean
+NewMed <- CompleteMeanMed$StepsMedian - StepsMeanMed$StepsMedian
+NewSteps
+NewMean
+NewMed
+```
 
 ## Are there differences in activity patterns between weekdays and weekends?
+For this part the \color{red}{\verb|weekdays()|}weekdays() function may be of some help here. Use the dataset with the filled-in missing values for this part.
+
+1. Create a new factor variable in the dataset with two levels – “weekday” and “weekend” indicating whether a given date is a weekday or weekend day.
+```{r Separting Weekdays and Weekends}
+MonFri <- c(2,3,4,5,6)
+
+SatSun <- c(1,7)
+```
+
+New datasets with imputed missing data.
+```{r Creating new data sets Weekend-Weekdays base on imputed datasets}
+maindf2 <- complete_Maindf1 %>% mutate(DayNumber = day(date))
+
+MonFriDf <- maindf2 %>% filter(DayNumber %in% MonFri)
+
+SatSunDf <- maindf2 %>% filter(DayNumber %in% SatSun)
+```
+
+2. Make a panel plot containing a time series plot (i.e. \color{red}{\verb|type = "l"|}type="l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis). See the README file in the GitHub repository to see an example of what this plot should look like using simulated data.
+```{r Timeseries difference Weekdays vs Weekends}
+TSMonFri <- MonFriDf %>% drop_na() %>% group_by(TimeInterval=interval)%>% 
+        summarize(Total_Obs = length(interval), 
+        SumOfSteps = sum(steps),
+        MeanOfSteps = mean(steps)) 
+
+g5 <-ggplot(data = TSMonFri, aes(y=MeanOfSteps, x=TimeInterval))+geom_line(color="red")+
+        labs(title="Personal Movement Activity Monitoring Device", 
+             subtitle="Monday through Friday (imputed data)",
+             x="STEPS",
+             y="FREQUENCY"
+      ) 
+
+TSSatSun <- SatSunDf %>% drop_na() %>% group_by(TimeInterval=interval)%>% 
+        summarize(Total_Obs = length(interval), 
+        SumOfSteps = sum(steps),
+        MeanOfSteps = mean(steps)) 
+
+g6 <-ggplot(data = TSSatSun, aes(y=MeanOfSteps, x=TimeInterval))+geom_line(color="green")+
+       labs(title="Personal Movement Activity Monitoring Device", 
+             subtitle="Saturday-Sunday (imputed data)",
+             x="STEPS",
+             y="FREQUENCY") 
+
+plot_grid(g5, g6, nrow = 2)
+```
+
+
+
+
+
+
+
+
+
