@@ -122,7 +122,9 @@ GTInterval <- SummaryIntervalSteps %>% gt::gt() %>% data_color(
     
 GTInterval    
 ```
+
 ### Timeseries
+
 1. Make a time series plot (i.e. \color{red}{\verb|type = "l"|}type="l") of the 
 5-minute interval (x-axis) and the average number of steps taken, averaged 
 across all days (y-axis)
@@ -157,7 +159,9 @@ Yeardf <- maindf %>% group_by(`Year`=year(date)) %>%
         subtitle = glue("{start_date} to {end_date}"))
 Yeardf
 ```
-## Monthly Missing Data
+
+### Monthly Missing Data
+
 ```{r Missing Values by Month}
 Monthdf <- maindf %>% group_by(M=month(date,label=TRUE, abbr=TRUE)) %>% 
   summarize(Total_Obs = length(date), ISNA_Count = sum(is.na(steps)),
@@ -169,6 +173,8 @@ MonthdfGT <- Monthdf %>% gt() %>%
     subtitle = glue("{start_date} to {end_date}"))
 MonthdfGT
 ```
+
+### Weekdays missing data
 
 ```{r Missing Values by Day Name}
 dailydf <-
@@ -185,6 +191,7 @@ dailydf <-
                subtitle = glue("{start_date} to {end_date}"))
 ```
 
+### Histogram by Weekdays - Tuesdays must be mandatory workday
 
 ```{r histogram by days}
 g3 <- ggplot(data = dailydf, aes(Daily))
@@ -212,7 +219,11 @@ aggr(maindf, col=c('navyblue', 'red'),
      labels=names(maindf), cex.axis=.8,
      gap=5, ylab=c("Missing Data", "Pattern"))
 ```
-I'm using Predictive Mean Matching (PMM) model to impute the missing data.
+
+### Strategy for Imputing missing data
+
+I will use the Predictive Mean Matching (PMM) model to impute the missing data. Please review the help file ?pmm for more details.   
+
 1. m = number of multiple imputations. Default is 5 and I picked 3.  
 2. maxit = A scalar giving the number of imputations. the default is 5 and I chose 50
 3. Method = pmm
@@ -238,6 +249,8 @@ complete_Maindf1 <- complete(imputed_maindf1, 1)
 
 summary(complete_Maindf1)
 ```
+
+### Histogram Comparison
 
 4. Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day. Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
 ```{r Comparison from missing data to imputed data,message=FALSE}
@@ -299,6 +312,7 @@ NewMed
 ```
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
 For this part the \color{red}{\verb|weekdays()|}weekdays() function may be of some help here. Use the dataset with the filled-in missing values for this part.
 
 1. Create a new factor variable in the dataset with two levels – “weekday” and “weekend” indicating whether a given date is a weekday or weekend day.
@@ -316,6 +330,8 @@ MonFriDf <- maindf2 %>% filter(DayNumber %in% MonFri)
 
 SatSunDf <- maindf2 %>% filter(DayNumber %in% SatSun)
 ```
+
+### Timeseries Comparison
 
 2. Make a panel plot containing a time series plot (i.e. \color{red}{\verb|type = "l"|}type="l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis). See the README file in the GitHub repository to see an example of what this plot should look like using simulated data.
 ```{r Timeseries difference Weekdays vs Weekends}
