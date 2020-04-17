@@ -122,7 +122,7 @@ GTInterval <- SummaryIntervalSteps %>% gt::gt() %>% data_color(
     
 GTInterval    
 ```
-###Timeseries
+### Timeseries
 1. Make a time series plot (i.e. \color{red}{\verb|type = "l"|}type="l") of the 
 5-minute interval (x-axis) and the average number of steps taken, averaged 
 across all days (y-axis)
@@ -277,7 +277,7 @@ GTCompleteMeanMed <- CompleteMeanMed %>% gt::gt() %>% data_color(
     columns = vars(Obs, SumofSteps, StepsMean, StepsMedian),
       colors = c("yellow")
 ) %>%
-    tab_header(title = "Step Mean and Median Summary (No missing data",
+    tab_header(title = "Step Mean and Median Summary (imputed)",
                subtitle = glue("{start_date} to {end_date}"))
 
 
